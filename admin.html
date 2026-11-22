@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dispatch & Commissions — Dépannage Express Bamako</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary: #0f766e;
+      --primary-dark: #115e59;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #cbd5e1;
+      --success: #15803d;
+      --warning: #b45309;
+      --danger: #dc2626;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      line-height: 1.45;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      color: var(--primary-dark);
+    }
+
+    .btn {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-outline { background: #fff; color: var(--text); border: 1px solid var(--border); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    @media (min-width: 760px) {
+      .grid-2 { grid-template-columns: 1.2fr 1fr; }
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.05rem;
+    }
+
+    .row-form {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    @media (min-width: 600px) {
+      .row-form.cols-3 { grid-template-columns: 1fr 1fr auto; align-items: end; }
+    }
+
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #334155;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: #fff;
+    }
+
+    .item-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fafafa;
+    }
+
+    .item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .badge {
+      font-size: 0.76rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+
+    .badge-pending { background: #fef3c7; color: var(--warning); }
+    .badge-assigned { background: #dbeafe; color: #1d4ed8; }
+    .badge-completed { background: #dcfce7; color: var(--success); }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      align-items: center;
+    }
+
+    .msg {
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 0.88rem;
+      display: none;
+    }
+
+    .msg-ok { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+    .msg-err { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Dispatch & Commissions (Admin)</h1>
+        <div class="muted">Gestion des demandes, artisans et règlements (15 % automatique)</div>
+      </div>
+      <button id="refresh-btn" class="btn btn-outline">Actualiser</button>
+    </header>
+
+    <div id="msg-box" class="msg"></div>
+
+    <div class="grid-2">
+      <section class="card">
+        <h2>Ajouter un artisan</h2>
+        <form id="artisan-form" class="row-form cols-3">
+          <div>
+            <label for="art_name">Nom de l'artisan</label>
+            <input type="text" id="art_name" required placeholder="Ex : Seydou Traoré" />
+          </div>
+          <div>
+            <label for="art_phone">Téléphone</label>
+            <input type="tel" id="art_phone" required placeholder="Ex : +223 76 00 00 00" />
+          </div>
+          <button type="submit" class="btn btn-primary">Ajouter</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Soldes de commission artisans</h2>
+        <div id="artisans-list" class="muted">Chargement...</div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Demandes d'intervention</h2>
+      <div id="requests-list" class="muted">Chargement...</div>
+    </section>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://ymemjzrztparvxxecjnr.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_qB_y1f5C285yS57zT_P9_w_zT_P9_w';
+
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const msgBox = document.getElementById('msg-box');
+    const artisansList = document.getElementById('artisans-list');
+    const requestsList = document.getElementById('requests-list');
+    const artisanForm = document.getElementById('artisan-form');
+    const refreshBtn = document.getElementById('refresh-btn');
+
+    let artisans = [];
+
+    function notify(text, isError = false) {
+      msgBox.textContent = text;
+      msgBox.className = `msg ${isError ? 'msg-err' : 'msg-ok'}`;
+      msgBox.style.display = 'block';
+    }
+
+    function statusBadge(status) {
+      if (status === 'completed') return '<span class="badge badge-completed">Terminée</span>';
+      if (status === 'assigned') return '<span class="badge badge-assigned">Assignée</span>';
+      return '<span class="badge badge-pending">En attente</span>';
+    }
+
+    async function loadArtisans() {
+      const { data, error } = await sb
+        .from('artisans')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        artisansList.innerHTML = `<div class="muted">Erreur : ${error.message}</div>`;
+        return;
+      }
+
+      artisans = data || [];
+      if (!artisans.length) {
+        artisansList.innerHTML = '<div class="muted">Aucun artisan enregistré pour le moment.</div>';
+        return;
+      }
+
+      artisansList.innerHTML = artisans.map(a => {
+        const balance = Number(a.commission_balance || 0);
+        return `
+          <div class="item-card">
+            <div class="item-top">
+              <strong>${a.name}</strong>
+              <span>Solde dû : <strong>${balance.toLocaleString('fr-FR')} FCFA</strong></span>
+            </div>
+            <div class="muted">${a.phone || ''}</div>
+            ${balance > 0 ? `
+              <div class="actions">
+                <button class="btn btn-success" onclick="settleCommission('${a.id}', ${balance})">
+                  Encaisser commission (${balance.toLocaleString('fr-FR')} FCFA)
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function loadRequests() {
+      const { data, error } = await sb
+        .from('requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        requestsList.innerHTML = `<div class="muted">Erreur : ${error.message}</div>`;
+        return;
+      }
+
+      const rows = data || [];
+      if (!rows.length) {
+        requestsList.innerHTML = '<div class="muted">Aucune demande pour le moment.</div>';
+        return;
+      }
+
+      requestsList.innerHTML = rows.map(r => {
+        const ref = r.reference_code || r.id?.slice(0, 8);
+        const options = artisans.map(a =>
+          `<option value="${a.id}" ${r.artisan_id === a.id ? 'selected' : ''}>${a.name}</option>`
+        ).join('');
+
+        return `
+          <div class="item-card">
+            <div class="item-top">
+              <strong>${ref} — ${r.client_name || 'Client'}</strong>
+              ${statusBadge(r.status)}
+            </div>
+            <div class="muted">Tél : ${r.client_phone || '-'} • Lieu : ${r.address_details || '-'}</div>
+            <div style="margin-top:6px;">${r.description || ''}</div>
+
+            <div class="actions">
+              <select id="art-select-${r.id}" style="max-width:220px;">
+                <option value="">-- Choisir artisan --</option>
+                ${options}
+              </select>
+              <button class="btn btn-outline" onclick="assignArtisan('${r.id}')">Assigner</button>
+
+              <input type="number" id="amount-${r.id}" placeholder="Montant intervention (FCFA)"
+                value="${r.intervention_amount || ''}" style="max-width:210px;" min="0" step="100" />
+              <button class="btn btn-primary" onclick="completeRequest('${r.id}')">Marquer terminée</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.assignArtisan = async (requestId) => {
+      const selectEl = document.getElementById(`art-select-${requestId}`);
+      const artisanId = selectEl?.value;
+      if (!artisanId) {
+        notify("Sélectionne d'abord un artisan.", true);
+        return;
+      }
+
+      const { error } = await sb
+        .from('requests')
+        .update({ artisan_id: artisanId, status: 'assigned' })
+        .eq('id', requestId);
+
+      if (error) {
+        notify("Erreur d'assignation : " + error.message, true);
+        return;
+      }
+
+      notify("Artisan assigné avec succès.");
+      await refreshAll();
+    };
+
+    window.completeRequest = async (requestId) => {
+      const amountEl = document.getElementById(`amount-${requestId}`);
+      const amount = Number(amountEl?.value);
+      if (!amount || amount <= 0) {
+        notify("Indique un montant d'intervention valide en FCFA.", true);
+        return;
+      }
+
+      const { error } = await sb
+        .from('requests')
+        .update({ intervention_amount: amount, status: 'completed' })
+        .eq('id', requestId);
+
+      if (error) {
+        notify("Erreur lors de la clôture : " + error.message, true);
+        return;
+      }
+
+      notify("Intervention marquée comme terminée (commission 15 % calculée automatiquement).");
+      await refreshAll();
+    };
+
+    window.settleCommission = async (artisanId, amount) => {
+      const { error } = await sb.rpc('record_commission_payment', {
+        p_artisan_id: artisanId,
+        p_amount: amount
+      });
+
+      if (error) {
+        notify("Erreur lors du règlement : " + error.message, true);
+        return;
+      }
+
+      notify("Règlement de commission enregistré et solde remis à 0.");
+      await refreshAll();
+    };
+
+    artisanForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('art_name').value.trim();
+      const phone = document.getElementById('art_phone').value.trim();
+      if (!name || !phone) return;
+
+      const { error } = await sb
+        .from('artisans')
+        .insert([{ name, phone, commission_balance: 0 }]);
+
+      if (error) {
+        notify("Erreur ajout artisan : " + error.message, true);
+        return;
+      }
+
+      artisanForm.reset();
+      notify("Artisan ajouté avec succès.");
+      await refreshAll();
+    });
+
+    async function refreshAll() {
+      await loadArtisans();
+      await loadRequests();
+    }
+
+    refreshBtn.addEventListener('click', refreshAll);
+    refreshAll();
+  </script>
+</body>
+</html>
